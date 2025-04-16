@@ -1,0 +1,22 @@
+
+replicas: 1 # for better debugging experience
+controller:
+  env:
+    # Azure client settings
+    - name: ARM_SUBSCRIPTION_ID
+      value: ff05f55d-22b5-44a7-b704-f9a8efd493ed
+    - name: LOCATION
+      value: eastus
+    - name: AZURE_CLUSTER_NAME
+      value: rag-test
+    - name: AZURE_NODE_RESOURCE_GROUP
+      value: MC_brfole-rag-test_rag-test_eastus
+    - name: ARM_RESOURCE_GROUP
+      value: brfole-rag-test
+    - name: LEADER_ELECT # disable leader election for better debugging experience
+      value: "false"
+    - name: E2E_TEST_MODE
+      value: "false"
+workloadIdentity:
+  clientId: e7105cc9-1544-4fc6-bce8-4de9e1711dec
+  tenantId: 72f988bf-86f1-41af-91ab-2d7cd011db47

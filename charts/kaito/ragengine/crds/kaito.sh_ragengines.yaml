@@ -193,6 +193,54 @@ spec:
                   Storage specifies how to access the vector database used to save the embedding vectors.
                   If this field is not specified, by default, an in-memory vector DB will be used.
                   The data will not be persisted.
+                properties:
+                  azureAISearch:
+                    description: 'TODO: add vendor specific APIs for accessing vector
+                      DB services here.'
+                    properties:
+                      indexes:
+                        items:
+                          properties:
+                            chunkField:
+                              type: string
+                            dimensions:
+                              format: int32
+                              type: integer
+                            documentIdField:
+                              type: string
+                            embeddingField:
+                              type: string
+                            idField:
+                              type: string
+                            languageAnalyzer:
+                              type: string
+                            name:
+                              type: string
+                            semanticConfigurationName:
+                              type: string
+                            vectorAlgorithm:
+                              type: string
+                          required:
+                          - chunkField
+                          - dimensions
+                          - documentIdField
+                          - embeddingField
+                          - idField
+                          - languageAnalyzer
+                          - name
+                          - semanticConfigurationName
+                          - vectorAlgorithm
+                          type: object
+                        type: array
+                      serviceEndpoint:
+                        type: string
+                      serviceKey:
+                        type: string
+                    required:
+                    - indexes
+                    - serviceEndpoint
+                    - serviceKey
+                    type: object
                 type: object
             required:
             - embedding

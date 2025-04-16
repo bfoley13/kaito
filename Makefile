@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-REGISTRY ?= YOUR_REGISTRY
+REGISTRY ?= brfoleragtest.azurecr.io
 IMG_NAME ?= workspace
 VERSION ?= v0.4.4
 GPU_PROVISIONER_VERSION ?= 0.3.2
@@ -31,13 +31,15 @@ TEST_SUITE ?= gpuprovisioner
 AZURE_SUBSCRIPTION_ID ?= $(AZURE_SUBSCRIPTION_ID)
 AZURE_LOCATION ?= eastus
 AKS_K8S_VERSION ?= 1.30.0
-AZURE_RESOURCE_GROUP ?= demo
-AZURE_CLUSTER_NAME ?= kaito-demo
+AZURE_RESOURCE_GROUP ?= brfole-rag-test
+AZURE_CLUSTER_NAME ?= rag-test
+AZURE_ACR_NAME ?= brfoleragtest
 AZURE_RESOURCE_GROUP_MC=MC_$(AZURE_RESOURCE_GROUP)_$(AZURE_CLUSTER_NAME)_$(AZURE_LOCATION)
 GPU_PROVISIONER_NAMESPACE ?= gpu-provisioner
 KAITO_NAMESPACE ?= kaito-workspace
 KAITO_RAGENGINE_NAMESPACE ?= kaito-ragengine
 GPU_PROVISIONER_MSI_NAME ?= gpuprovisionerIdentity
+KAITO_MSI_NAME=ai-toolchain-operator-$(AZURE_CLUSTER_NAME)
 
 ## Azure Karpenter parameters
 KARPENTER_NAMESPACE ?= karpenter
@@ -173,6 +175,10 @@ create-acr:  ## Create test ACR
 	az acr create --name $(AZURE_ACR_NAME) --resource-group $(AZURE_RESOURCE_GROUP) --sku Standard --admin-enabled -o none
 	az acr login  --name $(AZURE_ACR_NAME)
 
+.PHONY: create-managed-identit
+create-managed-identity: ## Create test managed identities
+	az identity create --name $(KAITO_MSI_NAME) --resource-group $(AZURE_RESOURCE_GROUP) -o none
+
 .PHONY: create-aks-cluster
 create-aks-cluster: ## Create test AKS cluster (with msi, oidc, and workload identity enabled)
 	az aks create  --name $(AZURE_CLUSTER_NAME) --resource-group $(AZURE_RESOURCE_GROUP) \
@@ -227,11 +233,13 @@ create-eks-cluster: ## Create test EKS cluster
 BUILDX_BUILDER_NAME ?= img-builder
 OUTPUT_TYPE ?= type=registry
 QEMU_VERSION ?= 7.2.0-1
-ARCH ?= amd64,arm64
+ARCH ?= amd64
 BUILDKIT_VERSION ?= v0.18.1
 
 RAGENGINE_IMAGE_NAME ?= ragengine
+RAGENGINE_SERVICE_IMG_NAME ?= kaito-rag-service
 RAGENGINE_IMAGE_TAG ?= v0.0.1
+RAGENGINE_SERVICE_IMG_TAG ?= latest
 
 
 .PHONY: docker-buildx
@@ -267,7 +275,7 @@ docker-build-ragservice: docker-buildx
         --output=$(OUTPUT_TYPE) \
         --file ./docker/ragengine/service/Dockerfile \
         --pull \
-        -tag $(REGISTRY)/$(RAGENGINE_SERVICE_IMG_NAME):$(RAGENGINE_SERVICE_IMG_TAG) .
+        --tag $(REGISTRY)/$(RAGENGINE_SERVICE_IMG_NAME):$(RAGENGINE_SERVICE_IMG_TAG) .
 
 .PHONY: docker-build-adapter
 docker-build-adapter: docker-buildx
@@ -317,13 +325,13 @@ docker-build-llm-reference-preset: docker-buildx
 ## --------------------------------------
 .PHONY: prepare-kaito-addon-identity
 prepare-kaito-addon-identity:
-	IDENTITY_PRINCIPAL_ID=$(shell az identity show --name "ai-toolchain-operator-$(AZURE_CLUSTER_NAME)" -g "$(AZURE_RESOURCE_GROUP_MC)"  --query 'principalId');\
-	az role assignment create --assignee $$IDENTITY_PRINCIPAL_ID --scope "/subscriptions/$(AZURE_SUBSCRIPTION_ID)/resourceGroups/$(AZURE_RESOURCE_GROUP_MC)"  --role "Contributor"
+	IDENTITY_PRINCIPAL_ID=$(shell az identity show --name "ai-toolchain-operator-$(AZURE_CLUSTER_NAME)" -g "$(AZURE_RESOURCE_GROUP)"  --query 'principalId');\
+	az role assignment create --assignee $$IDENTITY_PRINCIPAL_ID --scope "/subscriptions/$(AZURE_SUBSCRIPTION_ID)/resourceGroups/$(AZURE_RESOURCE_GROUP)"  --role "Contributor"
 
-	AKS_OIDC_ISSUER=$(shell az aks show -n "$(AZURE_CLUSTER_NAME)" -g "$(AZURE_RESOURCE_GROUP_MC)" --query 'oidcIssuerProfile.issuerUrl');\
+	AKS_OIDC_ISSUER=$(shell az aks show -n "$(AZURE_CLUSTER_NAME)" -g "$(AZURE_RESOURCE_GROUP)" --query 'oidcIssuerProfile.issuerUrl');\
 	az identity federated-credential create --name gpu-federated-cred --identity-name "ai-toolchain-operator-$(AZURE_CLUSTER_NAME)" \
     -g "$(AZURE_RESOURCE_GROUP)" --issuer $$AKS_OIDC_ISSUER \
-    --subject system:serviceaccount:"$(KAITO_NAMESPACE):kaito-gpu-provisioner" --audience api://AzureADTokenExchange
+    --subject system:serviceaccount:"$(GPU_PROVISIONER_NAMESPACE):gpu-provisioner" --audience api://AzureADTokenExchange
 
 .PHONY: az-patch-install-helm
 az-patch-install-helm: ## Update Azure client env vars and settings in helm values.yml
@@ -366,7 +374,7 @@ generate-identities: ## Create identities for the provisioner component.
 gpu-provisioner-helm:  ## Update Azure client env vars and settings in helm values.yml
 	curl -sO https://raw.githubusercontent.com/Azure/gpu-provisioner/main/hack/deploy/configure-helm-values.sh
 	chmod +x ./configure-helm-values.sh && ./configure-helm-values.sh $(AZURE_CLUSTER_NAME) \
-	$(AZURE_RESOURCE_GROUP) $(GPU_PROVISIONER_MSI_NAME)
+	$(AZURE_RESOURCE_GROUP) $(KAITO_MSI_NAME)
 
 	helm install $(GPU_PROVISIONER_NAMESPACE) \
 	--values gpu-provisioner-values.yaml \
@@ -437,6 +445,11 @@ build-ragengine: manifests generate fmt vet
 .PHONY: run-ragengine
 run-ragengine: manifests generate fmt vet
 	go run ./cmd/ragengine/main.go
+
+.PHONY: run-ragengine-service
+run-ragengine-service:
+	pip install -r presets/ragengine/requirements-test.txt
+	python3 presets/ragengine/main.py
 
 ##@ Deployment
 ifndef ignore-not-found

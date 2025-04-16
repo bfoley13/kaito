@@ -17,7 +17,7 @@ import os
 EMBEDDING_SOURCE_TYPE = os.getenv("EMBEDDING_SOURCE_TYPE", "local")  # Determines local or remote embedding source
 
 # Local embedding model
-LOCAL_EMBEDDING_MODEL_ID = os.getenv("LOCAL_EMBEDDING_MODEL_ID", "BAAI/bge-small-en-v1.5")
+LOCAL_EMBEDDING_MODEL_ID = os.getenv("LOCAL_EMBEDDING_MODEL_ID", "BAAI/bge-large-en-v1.5")
 
 # Remote embedding model (if not local)
 REMOTE_EMBEDDING_URL = os.getenv("REMOTE_EMBEDDING_URL", "http://localhost:5000/embedding")

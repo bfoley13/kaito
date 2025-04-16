@@ -71,3 +71,6 @@ class QueryResponse(BaseModel):
 class HealthStatus(BaseModel):
     status: str
     detail: Optional[str] = None 
+
+class AzureAISearchVectorQuery(BaseModel):
+    values: List[dict] = Field(description="List of items to vectorize")

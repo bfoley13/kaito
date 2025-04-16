@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 replicaCount: 1
 image:
-  repository: mcr.microsoft.com/aks/kaito/ragengine
+  repository: brfoleragtest.azurecr.io/ragengine
   pullPolicy: IfNotPresent
-  tag: 0.0.1
+  tag: 0.4.4
 imagePullSecrets: []
 podAnnotations: {}
 podSecurityContext:
@@ -29,3 +29,4 @@ tolerations: []
 affinity: {}
 # Values can be "azure" or "aws"
 cloudProviderName: "azure"
+clusterName: rag-test

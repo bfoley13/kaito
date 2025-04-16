@@ -6,9 +6,10 @@ from vector_store_manager.manager import VectorStoreManager
 from embedding.huggingface_local_embedding import LocalHuggingFaceEmbedding
 from embedding.remote_embedding import RemoteEmbeddingModel
 from fastapi import FastAPI, HTTPException, Query
-from models import (IndexRequest, ListDocumentsResponse,
+from models import (IndexRequest, ListDocumentsResponse, AzureAISearchVectorQuery,
                     QueryRequest, QueryResponse, DocumentResponse, HealthStatus)
 from vector_store.faiss_store import FaissVectorStoreHandler
+from vector_store.azure_ai_store import AzureAISearchVectorStoreHandler
 
 from ragengine.config import (REMOTE_EMBEDDING_URL, REMOTE_EMBEDDING_ACCESS_SECRET,
                               EMBEDDING_SOURCE_TYPE, LOCAL_EMBEDDING_MODEL_ID, DEFAULT_VECTOR_DB_PERSIST_DIR)
@@ -27,7 +28,12 @@ else:
 
 # Initialize vector store
 # TODO: Dynamically set VectorStore from EnvVars (which ultimately comes from CRD StorageSpec)
-vector_store_handler = FaissVectorStoreHandler(embedding_manager)
+vector_db_type = os.getenv("VECTOR_DB_TYPE", "faiss").lower()
+if vector_db_type == "azureaisearch":
+    vector_store_handler = AzureAISearchVectorStoreHandler(embedding_manager)
+    vector_store_handler.load_preset_indexes()
+else:
+    vector_store_handler = FaissVectorStoreHandler(embedding_manager)
 
 # Initialize RAG operations
 rag_ops = VectorStoreManager(vector_store_handler)
@@ -286,6 +292,26 @@ async def persist_index(
         return {"message": f"Successfully persisted index {index_name} to {path}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Persistence failed: {str(e)}")
+
+@app.post(
+    "/embedding",
+    summary="Get Embedding for Text",
+    description="""
+    Get the embedding for a given text using the specified embedding model.
+    https://learn.microsoft.com/en-us/azure/search/cognitive-search-custom-skill-web-api#sample-input-json-structure
+    ```
+    """,
+)
+async def get_embedding(request: AzureAISearchVectorQuery):
+    try:
+        print(request)
+        for req in request.values:
+            embedding = await embedding_manager._aget_text_embedding(req['data']['text'])
+            req['data']['vector'] = embedding
+        print(request)
+        return request
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
 
 @app.post(
     "/load/{index_name}",

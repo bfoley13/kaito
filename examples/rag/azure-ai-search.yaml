@@ -1,0 +1,31 @@
+apiVersion: kaito.sh/v1alpha1
+kind: RAGEngine
+metadata:
+  name: azure-ai-search
+spec:
+  compute:
+    instanceType: "Standard_NC6s_v3"
+    labelSelector:
+      matchLabels:
+        apps: ai-search
+  embedding:
+    local:
+      modelID: "BAAI/bge-small-en-v1.5"
+  inferenceService:
+    url: "http://10.0.95.115/v1/completions"
+  storage:
+    azureAISearch:
+      serviceEndpoint: "https://brfole-rag.search.windows.net"
+      serviceKey: ""
+      indexes:
+        - name: "vector-1742493359889"
+          idField: "chunk_id"
+          chunkField: "chunk"
+          embeddingField: "text_vector"
+          documentIdField: "parent_id"
+          vectorAlgorithm: "exhaustiveKnn"
+          languageAnalyzer: "en.lucene"
+          dimensions: 1536
+          semanticConfigurationName: "mySemanticConfig"
+  
+    

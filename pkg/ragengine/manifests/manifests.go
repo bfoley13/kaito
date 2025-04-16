@@ -5,6 +5,8 @@ package manifests
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -148,6 +150,32 @@ func RAGSetEnv(ragEngineObj *kaitov1alpha1.RAGEngine) []corev1.EnvVar {
 		Name:  "VECTOR_DB_TYPE",
 		Value: "faiss", // TODO: get storage done
 	}
+
+	if ragEngineObj.Spec.Storage != nil && ragEngineObj.Spec.Storage.AzureAISearchSpec != nil {
+		stoageEnv.Value = "azureaisearch"
+		aiSearchEndpointEnv := corev1.EnvVar{
+			Name:  "AZURE_SEARCH_ENDPOINT",
+			Value: ragEngineObj.Spec.Storage.AzureAISearchSpec.ServiceEndpoint,
+		}
+		aiSearchKeyEnv := corev1.EnvVar{
+			Name:  "AZURE_AI_SEARCH_SERVICE_KEY",
+			Value: ragEngineObj.Spec.Storage.AzureAISearchSpec.ServiceKey,
+		}
+		envs = append(envs, aiSearchEndpointEnv)
+		envs = append(envs, aiSearchKeyEnv)
+
+		indexBytes, err := json.Marshal(ragEngineObj.Spec.Storage.AzureAISearchSpec.Indexes)
+		if err != nil {
+			fmt.Println("failed to marshal indexes:", err)
+		} else {
+			indexEnv := corev1.EnvVar{
+				Name:  "INDEX_DEFINTIONS",
+				Value: string(indexBytes),
+			}
+			envs = append(envs, indexEnv)
+		}
+	}
+
 	envs = append(envs, stoageEnv)
 	inferenceServiceURL := ragEngineObj.Spec.InferenceService.URL
 	inferenceServiceURLEnv := corev1.EnvVar{

@@ -99,7 +99,7 @@ func CreatePresetRAG(ctx context.Context, ragEngineObj *v1alpha1.RAGEngine, revi
 	}
 	commands := utils.ShellCmd("python3 main.py")
 
-	image := "aimodelsregistrytest.azurecr.io/kaito-rag-service:0.3.2" //TODO: Change to the mcr image when release
+	image := "brfoleragtest.azurecr.io/kaito-rag-service:latest" //TODO: Change to the mcr image when release
 
 	imagePullSecretRefs := []corev1.LocalObjectReference{}
 

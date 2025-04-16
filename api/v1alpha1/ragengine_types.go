@@ -9,6 +9,26 @@ import (
 
 type StorageSpec struct {
 	//TODO: add vendor specific APIs for accessing vector DB services here.
+	// +optional
+	AzureAISearchSpec *AzureAISearchSpec `json:"azureAISearch,omitempty"`
+}
+
+type AzureAISearchSpec struct {
+	ServiceEndpoint string                   `json:"serviceEndpoint"`
+	ServiceKey      string                   `json:"serviceKey"`
+	Indexes         []AzureAISearchIndexSpec `json:"indexes"`
+}
+
+type AzureAISearchIndexSpec struct {
+	Name                      string `json:"name"`
+	IdField                   string `json:"idField"`
+	ChunkField                string `json:"chunkField"`
+	EmbeddingField            string `json:"embeddingField"`
+	DocumentIdField           string `json:"documentIdField"`
+	VectorAlgorithm           string `json:"vectorAlgorithm"`
+	LanguageAnalyzer          string `json:"languageAnalyzer"`
+	Dimensions                int32  `json:"dimensions"`
+	SemanticConfigurationName string `json:"semanticConfigurationName"`
 }
 
 type RemoteEmbeddingSpec struct {

@@ -7,7 +7,7 @@ from embedding.huggingface_local_embedding import LocalHuggingFaceEmbedding
 from embedding.remote_embedding import RemoteEmbeddingModel
 from fastapi import FastAPI, HTTPException, Query
 from models import (IndexRequest, ListDocumentsResponse, AzureAISearchVectorQuery,
-                    QueryRequest, QueryResponse, DocumentResponse, HealthStatus)
+                    QueryRequest, QueryResponse, Document, DocumentResponse, HealthStatus)
 from vector_store.faiss_store import FaissVectorStoreHandler
 from vector_store.azure_ai_store import AzureAISearchVectorStoreHandler
 
@@ -31,7 +31,6 @@ else:
 vector_db_type = os.getenv("VECTOR_DB_TYPE", "faiss").lower()
 if vector_db_type == "azureaisearch":
     vector_store_handler = AzureAISearchVectorStoreHandler(embedding_manager)
-    vector_store_handler.load_preset_indexes()
 else:
     vector_store_handler = FaissVectorStoreHandler(embedding_manager)
 
@@ -256,6 +255,83 @@ async def list_documents_in_index(
             documents=documents,
             count=len(documents)
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post(
+    "/indexes/{index_name}/documents/{doc_id}",
+    response_model=DocumentResponse,
+    summary="Update Document in an Index",
+    description="""
+    Updates a document in a given index. If the document does not exist, it will be created.
+
+    ## Request Example:
+    ```json
+    {
+      "text": "Sample document text.",
+      "metadata": {"author": "John Doe", "category": "example"}
+    }
+    ```
+
+    ## Response Example:
+    ```json
+    {
+        "doc_id": "123456",
+        "text": "Sample document text.",
+        "hash_value": null,
+        "metadata": {"author": "John Doe", "category": "example"},
+        "is_truncated": false
+    }
+    ```
+    """
+)
+async def update_document_in_index(
+    index_name: str,
+    doc_id: str,
+    request: Document,
+):
+    try:
+        # Decode the index_name in case it was URL-encoded by the client
+        decoded_index_name = unquote(index_name)
+        decoded_index_name = unquote(doc_id)
+        await rag_ops.update_index_document(decoded_index_name, decoded_index_name, request)
+        return DocumentResponse(
+            doc_id=doc_id,
+            text=request.text,
+            metadata=request.metadata,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete(
+    "/indexes/{index_name}/documents/{doc_id}",
+    summary="Delete Document from Index",
+    description="""
+    Deletes a document from a given index.
+
+    ## Request Example:
+    ```
+    DELETE /indexes/test_index/documents/test_doc_id
+    ```
+
+    ## Response Example:
+    ```json
+    {
+      "message": "Document test_doc_id deleted from index test_index."
+    }
+    ```
+    """
+)
+async def delete_document_from_index(
+    index_name: str,
+    doc_id: str
+):
+    try:
+        # Decode the index_name in case it was URL-encoded by the client
+        decoded_index_name = unquote(index_name)
+        decoded_doc_id = unquote(doc_id)
+        await rag_ops.delete_index_document(decoded_index_name, decoded_doc_id)
+        return {"message": f"Document {decoded_doc_id} deleted from index {decoded_index_name}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

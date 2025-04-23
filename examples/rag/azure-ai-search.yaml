@@ -27,5 +27,6 @@ spec:
           languageAnalyzer: "en.lucene"
           dimensions: 1536
           semanticConfigurationName: "mySemanticConfig"
+        -
   
     

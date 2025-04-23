@@ -41,6 +41,14 @@ class VectorStoreManager:
             offset,
             max_text_length
         )
+    
+    async def delete_index_document(self, index_name: str, doc_id: str) -> None:
+        """Delete a document from the index."""
+        return await self.vector_store.delete_index_document(index_name, doc_id)
+    
+    async def update_index_document(self, index_name: str, doc_id: str, document: Document) -> None:
+        """Update a document in the index."""
+        return await self.vector_store.update_index_document(index_name, doc_id, document)
 
     async def persist(self, index_name: str, path: str) -> None:
         """Persist existing index."""

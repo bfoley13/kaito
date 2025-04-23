@@ -171,9 +171,10 @@ class BaseVectorStore(ABC):
         )
         if self.use_rwlock:
             async with self.rwlock.reader_lock:
-                query_result = await query_engine.aquery(query)
+                query_result =  await asyncio.to_thread(query_engine.aquery, query)
         else:
-            query_result = await query_engine.aquery(query)
+            query_result = await asyncio.to_thread(query_engine.aquery, query)
+        print(f"Query result: {query_result}")
         return {
             "response": query_result.response,
             "source_nodes": [
@@ -204,6 +205,29 @@ class BaseVectorStore(ABC):
                 await asyncio.to_thread(self.index_map[index_name].insert, llama_doc)
         else:
             await asyncio.to_thread(self.index_map[index_name].insert, llama_doc)
+    
+    async def delete_index_document(self, index_name: str, doc_id: str):
+        """Common logic for deleting a document from an index."""
+        if index_name not in self.index_map:
+            raise ValueError(f"No such index: '{index_name}' exists.")
+        if self.use_rwlock:
+            async with self.rwlock.writer_lock:
+                await asyncio.to_thread(self.index_map[index_name].delete_ref_doc, doc_id)
+        else:
+            await asyncio.to_thread(self.index_map[index_name].delete_ref_doc, doc_id)
+    
+    async def update_index_document(self, index_name: str, doc_id: str, document: Document):
+        """Common logic for updating a document in an index."""
+        if index_name not in self.index_map:
+            raise ValueError(f"No such index: '{index_name}' exists.")
+        
+        llama_doc = LlamaDocument(id_=doc_id, text=document.text, metadata=document.metadata, excluded_llm_metadata_keys=[key for key in document.metadata.keys()])
+
+        if self.use_rwlock:
+            async with self.rwlock.writer_lock:
+                await asyncio.to_thread(self.index_map[index_name].update_ref_doc, llama_doc)
+        else:
+            await asyncio.to_thread(self.index_map[index_name].update_ref_doc, llama_doc)
 
     def list_indexes(self) -> List[str]:
         return list(self.index_map.keys())

@@ -107,6 +107,59 @@ class BaseVectorStoreTest(ABC):
 
         assert await vector_store_manager.document_exists("test_index", new_document[0],
                                                     BaseVectorStore.generate_doc_id("Fourth document"))
+    
+    @pytest.mark.asyncio
+    @respx.mock
+    @patch("requests.get")
+    async def test_update_document(self, mock_get, vector_store_manager):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "data": [{"id": "mock-model", "max_model_len": 2048}]
+        }
+
+        mock_response = {"result": "This is the completion from the API"}
+        respx.post(LLM_INFERENCE_URL).mock(return_value=httpx.Response(200, json=mock_response))
+
+        documents = [Document(text="Fifth document", metadata={"type": "text"})]
+        ids = await vector_store_manager.index_documents("test_index", documents)
+
+        await vector_store_manager.update_document(
+            "test_index", ids[0], Document(text="Updated Fifth document", metadata={"type": "text"})
+        )
+
+        assert await vector_store_manager.document_exists("test_index", Document(text="Updated Fifth document", metadata={"type": "text"}),
+                                                    ids[0])
+
+        # Check if the document was updated
+        result = await vector_store_manager.query("test_index", "Updated Fifth document", top_k=1,
+                                              llm_params={}, rerank_params={})
+        assert result["source_nodes"][0]["text"] == "Updated Fifth document"
+    
+    @pytest.mark.asyncio
+    @respx.mock
+    @patch("requests.get")
+    async def test_delete_document(self, mock_get, vector_store_manager):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "data": [{"id": "mock-model", "max_model_len": 2048}]
+        }
+
+        mock_response = {"result": "This is the completion from the API"}
+        respx.post(LLM_INFERENCE_URL).mock(return_value=httpx.Response(200, json=mock_response))
+
+        documents = [Document(text="Sixth document", metadata={"type": "text"})]
+        ids = await vector_store_manager.index_documents("test_index", documents)
+
+        # Delete the document
+        await vector_store_manager.delete_document("test_index", ids[0])
+
+        assert not await vector_store_manager.document_exists("test_index", Document(text="Updated Fifth document", metadata={"type": "text"}),
+                                                    ids[0])
+
+        # Check if the document was deleted
+        result = await vector_store_manager.query("test_index", "Sixth document", top_k=1,
+                                              llm_params={}, rerank_params={})
+        assert len(result["source_nodes"]) == 0
 
     @pytest.mark.asyncio
     async def test_add_document_on_existing_index(self, vector_store_manager):

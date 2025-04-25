@@ -10,9 +10,10 @@ class VectorStoreManager:
     def __init__(self, vector_store: BaseVectorStore):
         self.vector_store = vector_store
 
-    async def index(self, index_name: str, documents: List[Document]) -> List[str]:
+    async def index(self, index_name: str, documents: List[Document]) -> List[Dict[str, Any]]:
         """Index new documents."""
-        return await self.vector_store.index_documents(index_name, documents)
+        ids = await self.vector_store.index_documents(index_name, documents)
+        return await self.vector_store._get_index_documents_by_ids(index_name, ids)
 
     async def query(self,
               index_name: str,
@@ -41,6 +42,31 @@ class VectorStoreManager:
             offset,
             max_text_length
         )
+
+    async def list_documents_by_ids(self,
+            index_name: str,
+            doc_ids: List[str],
+    ) -> List[Dict[str, Any]]:
+        """List documents by IDs."""
+        return await self.vector_store.list_documents_by_ids(
+            index_name,
+            doc_ids,
+            limit,
+            offset,
+            max_text_length
+        )
+
+    async def update_document(self,
+            index_name: str,
+            doc_id: str,
+            new_doc: Document
+    ) -> None:
+        """Update a document in the index."""
+        return await self.vector_store.update_document(index_name, doc_id, new_doc)
+
+    async def delete_document(self, index_name: str, doc_id: str) -> None:
+        """Delete a document from the index."""
+        return await self.vector_store.delete_document(index_name, doc_id)
 
     async def persist(self, index_name: str, path: str) -> None:
         """Persist existing index."""

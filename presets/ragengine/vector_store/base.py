@@ -207,6 +207,30 @@ class BaseVectorStore(ABC):
 
     def list_indexes(self) -> List[str]:
         return list(self.index_map.keys())
+    
+    async def delete_document(self, index_name: str, doc_id: str):
+        """Common logic for deleting a document."""
+        if index_name not in self.index_map:
+            raise ValueError(f"No such index: '{index_name}' exists.")
+        if self.use_rwlock:
+            async with self.rwlock.writer_lock:
+                await asyncio.to_thread(self.index_map[index_name].delete_ref_doc, doc_id)
+        else:
+            await asyncio.to_thread(self.index_map[index_name].delete_ref_doc, doc_id)
+    
+    async def update_document(self, index_name: str, doc_id: str, document: Document):
+        """Common logic for updating a document."""
+        if index_name not in self.index_map:
+            raise ValueError(f"No such index: '{index_name}' exists.")
+        
+        llama_doc = LlamaDocument(id_=doc_id, text=document.text, metadata=document.metadata, excluded_llm_metadata_keys=[key for key in document.metadata.keys()])
+
+        if self.use_rwlock:
+            async with self.rwlock.writer_lock:
+                await self.index_map[index_name].update_ref_doc(llama_doc)
+        else:
+            await self.index_map[index_name].update_ref_doc(llama_doc)
+
 
     async def _process_document(self, doc_id: str, doc_stub, doc_store, max_text_length: Optional[int]):
         """
@@ -249,6 +273,39 @@ class BaseVectorStore(ABC):
         
         doc_store = vector_store_index.docstore
         docs_items = islice(doc_store.docs.items(), offset, offset + limit)
+
+        # Process documents concurrently, handling exceptions
+        docs = await asyncio.gather(
+            *(self._process_document(doc_id, doc_stub, doc_store, max_text_length) for doc_id, doc_stub in docs_items),
+            return_exceptions=True
+        )
+
+        # Return list of valid documents
+        return [doc for doc in docs if isinstance(doc, dict)]
+    
+    async def _get_index_documents_by_ids(self, 
+            index_name: str, 
+            ids: List[str],
+            max_text_length: Optional[int] = None
+        ) -> List[Dict[str, Any]]:
+        """
+        Return a dictionary of document metadata for the given ids in an index.
+        """
+        vector_store_index = self.index_map.get(index_name)
+        if not vector_store_index:
+            raise ValueError(f"Index '{index_name}' not found.")
+        
+        doc_store = vector_store_index.docstore
+        docs_items = []
+        for doc_id in ids:
+            retrieved_doc = await doc_store.aget_ref_doc_info(doc_id)
+            if not retrieved_doc:
+                logger.warning(f"Document ID {doc_id} not found in index {index_name}. Skipping.")
+                continue
+            if retrieved_doc.node_ids[0] in doc_store.docs:
+                docs_items.append((doc_id, doc_store.docs[retrieved_doc.node_ids[0]]))
+            else:
+                logger.warning(f"Document ID {doc_id} not found in index {index_name}. Skipping.")
 
         # Process documents concurrently, handling exceptions
         docs = await asyncio.gather(

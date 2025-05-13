@@ -46,6 +46,24 @@ class BaseVectorStoreTest(ABC):
         assert len(doc_ids) == 2
         assert set(doc_ids) == {BaseVectorStore.generate_doc_id(first_doc_text),
                                 BaseVectorStore.generate_doc_id(second_doc_text)}
+    
+    @pytest.mark.asyncio
+    async def test_index_code_documents(self, vector_store_manager):
+        code_text = "def hello_world():\n    print('Hello, world!')"
+        document_text = "This is a test document."
+        documents = [
+            Document(text=code_text, metadata={"type": "text", "split_type": "code", "language": "python"}),
+            Document(text=document_text, metadata={"type": "text"})
+        ]
+        
+        doc_ids = await vector_store_manager.index_documents("test_code_index", documents)
+        
+        assert len(doc_ids) == 2
+        assert set(doc_ids) == {BaseVectorStore.generate_doc_id(code_text),
+                                BaseVectorStore.generate_doc_id(document_text)}
+        
+        resp = await vector_store_manager.list_documents_in_index("test_code_index", limit=10, offset=0)
+        assert len(resp) == 2
 
     @pytest.mark.asyncio
     async def test_index_documents_isolation(self, vector_store_manager):

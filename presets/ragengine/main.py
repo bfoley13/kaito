@@ -250,6 +250,7 @@ async def list_documents_in_index(
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Invalid metadata filter format. Must be a valid JSON string.")
 
+        print(f"Metadata filter: {metadata_filter}")
         # Decode the index_name in case it was URL-encoded by the client
         decoded_index_name = unquote(index_name)
         documents = await rag_ops.list_documents_in_index(

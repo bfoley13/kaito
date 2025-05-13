@@ -20,6 +20,7 @@ from ragengine.models import Document
 from ragengine.embedding.base import BaseEmbeddingModel
 from ragengine.inference.inference import Inference
 from ragengine.config import (LLM_RERANKER_BATCH_SIZE, LLM_RERANKER_TOP_N)
+from ragengine.vector_store.transformers.code_transformer import CodeTransformer
 from fastapi import HTTPException
 
 from llama_index.core.storage.docstore import SimpleDocumentStore
@@ -103,6 +104,7 @@ class BaseVectorStore(ABC):
                         storage_context=storage_context,
                         embed_model=self.embed_model,
                         use_async=True,
+                        transformations=[CodeTransformer()],
                     )
                     index.set_index_id(index_name)
                     self.index_map[index_name] = index
@@ -113,6 +115,7 @@ class BaseVectorStore(ABC):
                     storage_context=storage_context,
                     embed_model=self.embed_model,
                     use_async=True,
+                    transformations=[CodeTransformer()],
                 )
                 index.set_index_id(index_name)
                 self.index_map[index_name] = index
@@ -317,6 +320,7 @@ class BaseVectorStore(ABC):
         
         doc_store = vector_store_index.docstore
         doc_store_items = doc_store.docs.items()
+        logger.info(f"Listing documents in index '{index_name}' with filter: {metadata_filter}")
         if metadata_filter is not None:
             docs_items = await self._filter_documents(doc_store_items, metadata_filter, offset, limit)
         else:

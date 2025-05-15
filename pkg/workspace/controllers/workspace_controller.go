@@ -111,6 +111,7 @@ func (c *WorkspaceReconciler) ensureFinalizer(ctx context.Context, workspaceObj 
 			return err
 		}
 	}
+	// not needed
 	return nil
 }
 

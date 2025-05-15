@@ -297,3 +297,26 @@ class BaseVectorStoreTest(ABC):
         # no results
         result = await vector_store_manager.list_documents_in_index(index_name, limit=5, offset=0, metadata_filter={"filename": "file_15", "branch": "main"})
         assert len(result) == 0
+    
+    @pytest.mark.asyncio
+    async def test_persist_and_load_as_seperate_index(self, vector_store_manager):
+        index_name = "test_index"
+        # Create multiple documents
+        documents = [
+            Document(text=f"Document {i}", metadata={"type": "text", "filename": f"file_{i}", "branch": "main"})
+            for i in range(10)
+        ]
+        
+        await vector_store_manager.index_documents(index_name, documents)
+        await vector_store_manager.persist(index_name, DEFAULT_VECTOR_DB_PERSIST_DIR)
+        await vector_store_manager.load("second_test_index", DEFAULT_VECTOR_DB_PERSIST_DIR, overwrite=True)
+
+        result = await vector_store_manager.list_documents_in_index("second_test_index", limit=5, offset=0)
+        assert len(result) == 5
+
+        await vector_store_manager.delete_documents("second_test_index", [result[0]['doc_id']])
+
+        first_index_result = await vector_store_manager.list_documents_in_index("test_index", limit=10, offset=0)
+        second_index_result = await vector_store_manager.list_documents_in_index("second_test_index", limit=10, offset=0)
+        assert len(first_index_result) == 10
+        assert len(second_index_result) == 9

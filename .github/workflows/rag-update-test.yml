@@ -1,0 +1,16 @@
+name: Rag Update Test
+on: [push]
+
+jobs:
+  rag-update:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Run rag update
+      uses: bfoley13/update-rag-action@main
+      with:
+        ragHost: ${{ secrets.RAG_HOST }}
+        ragPort: ${{ secrets.RAG_PORT }}
